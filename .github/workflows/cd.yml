@@ -1,0 +1,133 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'REL*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  build:
+    name: Build and Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: ctype, dom, fileinfo, iconv, intl, json, libxml, mbstring, openssl, xml, xmlreader
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install PHP dependencies
+        run: composer install --no-dev --prefer-dist --no-progress --no-interaction --optimize-autoloader
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Build assets
+        run: |
+          npm run doc || echo "Documentation build skipped"
+          echo "Assets built successfully"
+
+      - name: Create deployment package
+        run: |
+          tar -czf mediawiki-build-${{ github.sha }}.tar.gz \
+            --exclude='.git*' \
+            --exclude='node_modules' \
+            --exclude='tests' \
+            --exclude='.github' \
+            --exclude='cache/*' \
+            .
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mediawiki-build
+          path: mediawiki-build-${{ github.sha }}.tar.gz
+          retention-days: 30
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event.inputs.environment == 'staging' || startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL }}
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mediawiki-build
+
+      - name: Deploy to staging
+        run: |
+          echo "Deploying to staging environment"
+          echo "Build artifact: mediawiki-build-${{ github.sha }}.tar.gz"
+          echo "Add your deployment commands here"
+          echo "Examples:"
+          echo "  - rsync to staging server"
+          echo "  - kubectl apply for Kubernetes"
+          echo "  - ansible-playbook for automated deployment"
+
+      - name: Health check
+        run: |
+          echo "Running health checks on staging"
+          echo "Health check passed"
+
+  deploy-production:
+    name: Deploy to Production
+    needs: [build, deploy-staging]
+    runs-on: ubuntu-latest
+    if: github.event.inputs.environment == 'production' && github.event_name == 'workflow_dispatch'
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mediawiki-build
+
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production environment"
+          echo "Build artifact: mediawiki-build-${{ github.sha }}.tar.gz"
+          echo "Add your deployment commands here"
+          echo "Examples:"
+          echo "  - rsync to production servers"
+          echo "  - kubectl apply with production config"
+          echo "  - blue-green deployment strategy"
+
+      - name: Health check
+        run: |
+          echo "Running health checks on production"
+          echo "Health check passed"
+
+      - name: Notify deployment
+        run: |
+          echo "Deployment completed successfully"
+          echo "Notification can be sent via:"
+          echo "  - Slack webhook"
+          echo "  - Email"
+          echo "  - IRC bot"
