@@ -95,3 +95,14 @@ Thumbs.db
 docker-compose.override.yml
 .env
 .devcontainer/*
+
+# Build artifacts
+/build
+/dist
+*.tar.gz
+*.zip
+/backups
+
+# Deployment
+.deploy-*
+deploy-*.log
