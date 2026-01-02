@@ -16,10 +16,16 @@ on:
           - staging
           - production
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build and Package
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -70,6 +76,9 @@ jobs:
     name: Deploy to Staging
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     if: github.event.inputs.environment == 'staging' || startsWith(github.ref, 'refs/tags/v')
     environment:
       name: staging
@@ -99,6 +108,9 @@ jobs:
     name: Deploy to Production
     needs: [build, deploy-staging]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     if: github.event.inputs.environment == 'production' && github.event_name == 'workflow_dispatch'
     environment:
       name: production
